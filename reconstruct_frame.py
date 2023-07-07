@@ -27,6 +27,30 @@ import numpy as np
 
 import plyfile
 
+rot_x_world = np.array([
+    [1, 0, 0, 0],
+    [0, np.cos(1.57), -np.sin(1.57), 0],
+    [0, np.sin(1.57),  np.cos(1.57), 0],
+    [0, 0, 0, 1]
+])
+
+rot_y_world = np.array([
+    [np.cos(1.57), 0, -np.sin(1.57), 0],
+    [0,             1,              0, 0],
+    [np.sin(1.57), 0,  np.cos(1.57), 0],
+    [0, 0, 0, 1]
+])
+
+rot_z_world = np.array([
+    [np.cos(-1.57), -np.sin(-1.57),0 ,0],
+    [np.sin(-1.57),  np.cos(-1.57),0 ,0],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1]
+])
+
+
+rott = rot_x_world @ rot_y_world
+
 def config_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', type=str, required=True, help='path to config file')
@@ -98,20 +122,20 @@ if __name__ == "__main__":
             #     objects_recon += [obj]    
         except KeyError:
             pass
-    scale_pam = 0.7
+    scale_pam = 1
     scale = scale_pam * np.array([
         [scale_pam, 0, 0],
         [0, scale_pam, 0,],
         [0, 0, scale_pam],
     ])
-
     all_points = (scale @ all_points.T).T
-    
+    rot_points = (rott[:3, :3] @ all_points.T).T
+     
     obj = optimizer.reconstruct_object(np.array([[1, 0, 0, 0],
                                             [0, 1, 0, 0],
                                             [0, 0, 1, 0],
                                             [0, 0, 0, 1],
-                                            ], dtype="float32"), all_points)
+                                            ], dtype="float32"), rot_points)
     objects_recon = [obj]
 
     # print("all_points", all_points)
@@ -136,29 +160,6 @@ if __name__ == "__main__":
     mesh_extractor = MeshExtractor(decoder, voxels_dim=64)
 
 
-    rot_x_world = np.array([
-        [1, 0, 0, 0],
-        [0, np.cos(1.57), -np.sin(1.57), 0],
-        [0, np.sin(1.57),  np.cos(1.57), 0],
-        [0, 0, 0, 1]
-    ])
-    
-    rot_y_world = np.array([
-        [np.cos(1.57), 0, -np.sin(1.57), 0],
-        [0,             1,              0, 0],
-        [np.sin(1.57), 0,  np.cos(1.57), 0],
-        [0, 0, 0, 1]
-    ])
-
-    rot_z_world = np.array([
-        [np.cos(-1.57), -np.sin(-1.57),0 ,0],
-        [np.sin(-1.57),  np.cos(-1.57),0 ,0],
-        [0, 0, 1, 0],
-        [0, 0, 0, 1]
-    ])
-
-
-    rott = rot_x_world @ rot_y_world
     for i, obj in enumerate(objects_recon):
         # try:
         #     scene_pcd.points = o3d.utility.Vector3dVector(canonical_points[i])

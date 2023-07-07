@@ -126,7 +126,8 @@ def convert_sdf_voxels_to_mesh(pytorch_3d_sdf_tensor):
 
     numpy_3d_sdf_tensor = pytorch_3d_sdf_tensor.cpu().detach().numpy()
     voxels_dim = numpy_3d_sdf_tensor.shape[0]
-    voxel_size = 2.0 / (voxels_dim - 1)
+    # voxel_size = 2.0 / (voxels_dim - 1) # old_one
+    voxel_size = 4.0 / (voxels_dim - 1)
     verts, faces, normals, values = measure.marching_cubes_lewiner(
         numpy_3d_sdf_tensor, level=0.0, spacing=[voxel_size] * 3
     )

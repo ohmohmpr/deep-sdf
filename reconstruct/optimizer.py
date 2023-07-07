@@ -111,10 +111,10 @@ class Optimizer(object):
         for e in range(self.num_iterations_joint_optim):
             
             t_cam_obj = torch.inverse(t_obj_cam)
-            scale = torch.det(t_cam_obj[:3, :3]) ** (1 / 3)
+            # scale = torch.det(t_cam_obj[:3, :3]) ** (1 / 3)
             # print("Scale: %f" % scale)
-            depth_min, depth_max = t_cam_obj[2, 3] - 1.0 * scale, t_cam_obj[2, 3] + 1.0 * scale
-            sampled_depth_along_rays = torch.linspace(depth_min, depth_max, self.num_depth_samples).cuda()
+            # depth_min, depth_max = t_cam_obj[2, 3] - 1.0 * scale, t_cam_obj[2, 3] + 1.0 * scale
+            # sampled_depth_along_rays = torch.linspace(depth_min, depth_max, self.num_depth_samples).cuda()
 
             # 1. Compute SDF (3D) loss
             sdf_rst = compute_sdf_loss(self.decoder, pts_surface, t_obj_cam, latent_vector)
@@ -140,7 +140,7 @@ class Optimizer(object):
             #     return ForceKeyErrorDict(t_cam_obj=None, code=None, is_good=False, loss=loss)
 
             # 3. Rotation prior
-            drot_dsim3, res_rot = compute_rotation_loss_sim3(t_obj_cam)
+            # drot_dsim3, res_rot = compute_rotation_loss_sim3(t_obj_cam)
 
             # loss = self.k1 * render_loss + self.k2 * sdf_loss
             loss = self.k2 * sdf_loss
@@ -165,11 +165,11 @@ class Optimizer(object):
             b[pose_dim:pose_dim + self.code_len] -= self.k3 * z
 
             # Rotation regularization
-            drot_dsim3 = drot_dsim3.unsqueeze(0)
-            H_rot = torch.mm(drot_dsim3.transpose(-2, -1), drot_dsim3)
-            b_rot = -(drot_dsim3.transpose(-2, -1) * res_rot).squeeze()
-            H[:pose_dim, :pose_dim] += self.k4 * H_rot
-            b[:pose_dim] -= self.k4 * b_rot
+            # drot_dsim3 = drot_dsim3.unsqueeze(0)
+            # H_rot = torch.mm(drot_dsim3.transpose(-2, -1), drot_dsim3)
+            # b_rot = -(drot_dsim3.transpose(-2, -1) * res_rot).squeeze()
+            # H[:pose_dim, :pose_dim] += self.k4 * H_rot
+            # b[:pose_dim] -= self.k4 * b_rot
             # rot_loss = res_rot
 
             # add a small damping to the pose part

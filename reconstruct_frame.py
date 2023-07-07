@@ -85,50 +85,112 @@ if __name__ == "__main__":
         # objects_recon += [obj]
     canonical_points = np.load('canonical_points.npy', allow_pickle='TRUE').item()
     cars = len(canonical_points)
-    for i in range(32, 33):
+    all_points = np.array([[0, 0, 0]])
+    for i in range(cars):
         try:
-            obj = optimizer.reconstruct_object(np.array([[1, 0, 0, 0],
-                                                    [0, 1, 0, 0],
-                                                    [0, 0, 1, 0],
-                                                    [0, 0, 0, 1],
-                                                    ], dtype="float32"), canonical_points[i])
-            objects_recon += [obj]
+            all_points = np.concatenate((all_points, canonical_points[i]))
+            # if canonical_points[i].shape[0] > 200:
+            #     obj = optimizer.reconstruct_object(np.array([[1, 0, 0, 0],
+            #                                             [0, 1, 0, 0],
+            #                                             [0, 0, 1, 0],
+            #                                             [0, 0, 0, 1],
+            #                                             ], dtype="float32"), canonical_points[i])
+            #     objects_recon += [obj]    
         except KeyError:
             pass
+    scale_pam = 0.7
+    scale = scale_pam * np.array([
+        [scale_pam, 0, 0],
+        [0, scale_pam, 0,],
+        [0, 0, scale_pam],
+    ])
+
+    all_points = (scale @ all_points.T).T
+    
+    obj = optimizer.reconstruct_object(np.array([[1, 0, 0, 0],
+                                            [0, 1, 0, 0],
+                                            [0, 0, 1, 0],
+                                            [0, 0, 0, 1],
+                                            ], dtype="float32"), all_points)
+    objects_recon = [obj]
+
+    # print("all_points", all_points)
+
     end = get_time()
-    print("Reconstructed %d objects in the scene, time elapsed: %f seconds" % (len(objects_recon), end - start))
+    # print("Reconstructed %d objects in the scene, time elapsed: %f seconds" % (len(objects_recon), end - start))
 
     # Visualize results
     vis = o3d.visualization.Visualizer()
     vis.create_window()
-    opt = vis.get_render_option()
-    opt.show_coordinate_frame = True
     vis_ctr = vis.get_view_control()
 
     # Add LiDAR point cloud
     # velo_pts, colors = kitti_seq.current_frame.get_colored_pts()
     scene_pcd = o3d.geometry.PointCloud()
-    
-    scene_pcd.points = o3d.utility.Vector3dVector(canonical_points[32])
     # scene_pcd.colors = o3d.utility.Vector3dVector(np.array([128, 0, 0]) / 255.0)
-    vis.add_geometry(scene_pcd)
 
+
+    c = 0
+    scene_pcd.points = o3d.utility.Vector3dVector(all_points)
+    vis.add_geometry(scene_pcd)
     mesh_extractor = MeshExtractor(decoder, voxels_dim=64)
+
+
+    rot_x_world = np.array([
+        [1, 0, 0, 0],
+        [0, np.cos(1.57), -np.sin(1.57), 0],
+        [0, np.sin(1.57),  np.cos(1.57), 0],
+        [0, 0, 0, 1]
+    ])
+    
+    rot_y_world = np.array([
+        [np.cos(1.57), 0, -np.sin(1.57), 0],
+        [0,             1,              0, 0],
+        [np.sin(1.57), 0,  np.cos(1.57), 0],
+        [0, 0, 0, 1]
+    ])
+
+    rot_z_world = np.array([
+        [np.cos(-1.57), -np.sin(-1.57),0 ,0],
+        [np.sin(-1.57),  np.cos(-1.57),0 ,0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1]
+    ])
+
+
+    rott = rot_x_world @ rot_y_world
     for i, obj in enumerate(objects_recon):
+        # try:
+        #     scene_pcd.points = o3d.utility.Vector3dVector(canonical_points[i])
+        #     # print(f"canonical_points{i}", canonical_points[i].shape[0])
+        #     if canonical_points[i].shape[0] > 200:
+        #         vis.add_geometry(scene_pcd)
+        #         c = c + canonical_points[i].shape[0]
+                
+        # except KeyError:
+        #     pass
+
         mesh = mesh_extractor.extract_mesh_from_code(obj.code)
 
-        # write_mesh_to_ply(mesh.vertices, mesh.faces, os.path.join(save_dir, "%d.ply" % obj_id))
-        write_mesh_to_ply(mesh.vertices, mesh.faces, os.path.join("./mesh", "%d.ply" % i))
+        # # write_mesh_to_ply(mesh.vertices, mesh.faces, os.path.join(save_dir, "%d.ply" % obj_id))
+        # write_mesh_to_ply(mesh.vertices, mesh.faces, os.path.join("./mesh", "%d.ply" % i))
         mesh_o3d = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(mesh.vertices), o3d.utility.Vector3iVector(mesh.faces))
  
         mesh_o3d.compute_vertex_normals()
         # mesh_o3d.paint_uniform_color(color_table[i])
         # Transform mesh from object to world coordinate
-        mesh_o3d.transform(obj.t_cam_obj)
+        # mesh_o3d.transform(obj.t_cam_obj)
+        mesh_o3d.transform(rott)
         vis.add_geometry(mesh_o3d)
 
     # must be put after adding geometries
-    set_view(vis, dist=20, theta=0.)
+    # set_view(vis, dist=20, theta=0.)
+
+    print("number of points cloud", c)
+    coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
+        size=1, origin=[0, 0, 0])
+    vis.add_geometry(coordinate_frame)
+    
     vis.run()
     vis.destroy_window()
 

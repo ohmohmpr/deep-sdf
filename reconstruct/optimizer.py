@@ -42,48 +42,48 @@ class Optimizer(object):
         if configs.data_type == "KITTI":
             self.num_iterations_pose_only = optim_cfg.pose_only_optim.num_iterations
 
-    def estimate_pose_cam_obj(self, t_co_se3, scale, pts, code):
-        """
-        :param t_co_se3: o2c transformation (4, 4) in SE(3)
-        :param scale: object scale
-        :param pts: surface points (M, 3)
-        :param code: shape code
-        :return: optimized o2c transformation
-        """
-        t_cam_obj = torch.from_numpy(t_co_se3)
-        t_cam_obj[:3, :3] *= scale
-        t_obj_cam = torch.inverse(t_cam_obj)
-        latent_vector = torch.from_numpy(code).cuda()
-        pts_surface = torch.from_numpy(pts).cuda()
+    # def estimate_pose_cam_obj(self, t_co_se3, scale, pts, code):
+    #     """
+    #     :param t_co_se3: o2c transformation (4, 4) in SE(3)
+    #     :param scale: object scale
+    #     :param pts: surface points (M, 3)
+    #     :param code: shape code
+    #     :return: optimized o2c transformation
+    #     """
+    #     t_cam_obj = torch.from_numpy(t_co_se3)
+    #     t_cam_obj[:3, :3] *= scale
+    #     t_obj_cam = torch.inverse(t_cam_obj)
+    #     latent_vector = torch.from_numpy(code).cuda()
+    #     pts_surface = torch.from_numpy(pts).cuda()
 
-        for e in range(self.num_iterations_pose_only):
-            start = get_time()
-            # 1. Compute SDF (3D) loss
-            de_dsim3_sdf, de_dc_sdf, res_sdf = \
-                compute_sdf_loss(self.decoder, pts_surface,
-                                      t_obj_cam,
-                                      latent_vector)
-            _, sdf_loss, _ = get_robust_res(res_sdf, 0.05)
+    #     for e in range(self.num_iterations_pose_only):
+    #         start = get_time()
+    #         # 1. Compute SDF (3D) loss
+    #         de_dsim3_sdf, de_dc_sdf, res_sdf = \
+    #             compute_sdf_loss(self.decoder, pts_surface,
+    #                                   t_obj_cam,
+    #                                   latent_vector)
+    #         _, sdf_loss, _ = get_robust_res(res_sdf, 0.05)
 
-            j_sdf = de_dsim3_sdf[..., :6]
-            hess = torch.bmm(j_sdf.transpose(-2, -1), j_sdf).sum(0).squeeze().cpu() / j_sdf.shape[0]
-            hess += 1e-2 * torch.eye(6)
-            b = -torch.bmm(j_sdf.transpose(-2, -1), res_sdf).sum(0).squeeze().cpu() / j_sdf.shape[0]
-            dx = torch.mv(torch.inverse(hess), b)
-            delta_t = exp_se3(dx)
-            t_obj_cam = torch.mm(delta_t, t_obj_cam)
+    #         j_sdf = de_dsim3_sdf[..., :6]
+    #         hess = torch.bmm(j_sdf.transpose(-2, -1), j_sdf).sum(0).squeeze().cpu() / j_sdf.shape[0]
+    #         hess += 1e-2 * torch.eye(6)
+    #         b = -torch.bmm(j_sdf.transpose(-2, -1), res_sdf).sum(0).squeeze().cpu() / j_sdf.shape[0]
+    #         dx = torch.mv(torch.inverse(hess), b)
+    #         delta_t = exp_se3(dx)
+    #         t_obj_cam = torch.mm(delta_t, t_obj_cam)
 
-            if e == 4:
-                inliers_mask = torch.abs(res_sdf).squeeze() <= 0.05
-                pts_surface = pts_surface[inliers_mask, :]
+    #         if e == 4:
+    #             inliers_mask = torch.abs(res_sdf).squeeze() <= 0.05
+    #             pts_surface = pts_surface[inliers_mask, :]
 
-            # print("Object pose-only optimization: Iter %d, sdf loss: %f" % (e, sdf_loss))
+    #         # print("Object pose-only optimization: Iter %d, sdf loss: %f" % (e, sdf_loss))
 
-        # Convert back to SE3
-        t_cam_obj = torch.inverse(t_obj_cam)
-        t_cam_obj[:3, :3] /= scale
+    #     # Convert back to SE3
+    #     t_cam_obj = torch.inverse(t_obj_cam)
+    #     t_cam_obj[:3, :3] /= scale
 
-        return t_cam_obj
+    #     return t_cam_obj
 
     def reconstruct_object(self, t_cam_obj, pts, code=None):
         """
@@ -94,27 +94,25 @@ class Optimizer(object):
         """
         # Always start from zero code
         if code is None:
-            latent_vector = torch.zeros(self.code_len).cuda()
+            # latent_vector = torch.zeros(self.code_len).cuda()
+            latent_vector = torch.zeros(self.code_len)
         else:
-            latent_vector = torch.from_numpy(code[:self.code_len]).cuda()
+            # latent_vector = torch.from_numpy(code[:self.code_len]).cuda()
+            latent_vector = torch.from_numpy(code[:self.code_len])
 
         # Initial Pose Estimate
         t_cam_obj = torch.from_numpy(t_cam_obj)
         t_obj_cam = torch.inverse(t_cam_obj)
+        print("BEFORE t_cam_obj", t_cam_obj)
         
         
         # surface points within Omega_s
-        pts_surface = torch.from_numpy(pts).cuda().to(dtype=torch.float32)
+        # pts_surface = torch.from_numpy(pts).cuda().to(dtype=torch.float32)
+        pts_surface = torch.from_numpy(pts).to(dtype=torch.float32)
 
         start = get_time()
         loss = 0.
         for e in range(self.num_iterations_joint_optim):
-            
-            t_cam_obj = torch.inverse(t_obj_cam)
-            # scale = torch.det(t_cam_obj[:3, :3]) ** (1 / 3)
-            # print("Scale: %f" % scale)
-            # depth_min, depth_max = t_cam_obj[2, 3] - 1.0 * scale, t_cam_obj[2, 3] + 1.0 * scale
-            # sampled_depth_along_rays = torch.linspace(depth_min, depth_max, self.num_depth_samples).cuda()
 
             # 1. Compute SDF (3D) loss
             sdf_rst = compute_sdf_loss(self.decoder, pts_surface, t_obj_cam, latent_vector)
@@ -182,7 +180,8 @@ class Optimizer(object):
             delta_c = dx[pose_dim:pose_dim + self.code_len]
             delta_t = exp_sim3(self.lr * delta_p)
             t_obj_cam = torch.mm(delta_t, t_obj_cam)
-            latent_vector += self.lr * delta_c.cuda()
+            # latent_vector += self.lr * delta_c.cuda()
+            latent_vector += self.lr * delta_c
 
             print("Object joint optimization: Iter %d, loss: %f, sdf loss: %f, "
                   % (e, loss, sdf_loss))
@@ -190,6 +189,8 @@ class Optimizer(object):
         end = get_time()
         print("Reconstruction takes %f seconds" % (end - start))
         t_cam_obj = torch.inverse(t_obj_cam)
+        print("AFTER t_cam_obj", t_cam_obj)
+        # print("AFTER t_obj_cam", t_obj_cam)
         return ForceKeyErrorDict(t_cam_obj=t_cam_obj.numpy(),
                                  code=latent_vector.cpu().numpy(),
                                  is_good=True, loss=loss)
@@ -201,11 +202,13 @@ class MeshExtractor(object):
         self.code_len = code_len
         self.voxels_dim = voxels_dim
         with torch.no_grad():
-            self.voxel_points = create_voxel_grid(vol_dim=self.voxels_dim).cuda()
+            # self.voxel_points = create_voxel_grid(vol_dim=self.voxels_dim).cuda()
+            self.voxel_points = create_voxel_grid(vol_dim=self.voxels_dim)
 
     def extract_mesh_from_code(self, code):
         start = get_time()
-        latent_vector = torch.from_numpy(code[:self.code_len]).cuda()
+        # latent_vector = torch.from_numpy(code[:self.code_len]).cuda()
+        latent_vector = torch.from_numpy(code[:self.code_len])
         sdf_tensor = decode_sdf(self.decoder, latent_vector, self.voxel_points)
         vertices, faces = convert_sdf_voxels_to_mesh(sdf_tensor.view(self.voxels_dim, self.voxels_dim, self.voxels_dim))
         vertices = vertices.astype("float32")

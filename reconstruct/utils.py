@@ -36,6 +36,16 @@ color_table = [[230. / 255., 0., 0.],  # red
                [0., 128. / 255., 128. / 255.]
                ]
 
+angle = 180
+angle_rad = np.deg2rad(angle)
+
+rot_z_world = np.array([
+    [np.cos(angle_rad), -np.sin(angle_rad),0 ,0],
+    [np.sin(angle_rad),  np.cos(angle_rad),0 ,0],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1]
+])
+
 
 def set_view(vis, dist=100., theta=np.pi/6.):
     """
@@ -125,10 +135,9 @@ def convert_sdf_voxels_to_mesh(pytorch_3d_sdf_tensor):
     """
 
     numpy_3d_sdf_tensor = pytorch_3d_sdf_tensor.cpu().detach().numpy()
-    voxels_dim = numpy_3d_sdf_tensor.shape[0]
-    # voxel_size = 2.0 / (voxels_dim - 1) # old_one
-    voxel_size = 4.0 / (voxels_dim - 1)
-    verts, faces, normals, values = measure.marching_cubes_lewiner(
+    voxels_dim = numpy_3d_sdf_tensor.shape[0] # 64
+    voxel_size = 2.0 / (voxels_dim - 1)
+    verts, faces, normals, values = measure.marching_cubes(
         numpy_3d_sdf_tensor, level=0.0, spacing=[voxel_size] * 3
     )
     # transform from voxel coordinates to camera coordinates

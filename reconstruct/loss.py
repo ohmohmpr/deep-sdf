@@ -28,9 +28,10 @@ def compute_sdf_loss(decoder, pts_surface_cam, t_obj_cam, latent_vector):
     :return: Jacobian wrt pose (N, 1, 7), Jacobian wrt shape code (N, 1, code_len), error residuals (N, 1, 1)
     """
     # (n_sample_surface, 3)
-    pts_surface_obj = \
-        (pts_surface_cam[..., None, :] * t_obj_cam.cuda()[:3, :3]).sum(-1) + t_obj_cam.cuda()[:3, 3]
-
+    # pts_surface_obj = (pts_surface_cam[..., None, :] * t_obj_cam.cuda()[:3, :3]).sum(-1) + t_obj_cam.cuda()[:3, 3]
+    pts_surface_obj = (pts_surface_cam[..., None, :] * t_obj_cam[:3, :3]).sum(-1) + t_obj_cam[:3, 3]
+    # pts_surface_obj = pts_surface_cam
+    
     res_sdf, de_di = get_batch_sdf_jacobian(decoder, latent_vector, pts_surface_obj, 1)
     # SDF term Jacobian
     de_dxo = de_di[..., -3:]

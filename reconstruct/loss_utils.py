@@ -66,7 +66,8 @@ def decode_sdf(decoder, lat_vec, x, max_batch=64**3):
     sdf_values_chunks = []
     with torch.no_grad():
         while head < num_samples:
-            x_subset = x[head : min(head + max_batch, num_samples), 0:3].cuda()
+            # x_subset = x[head : min(head + max_batch, num_samples), 0:3].cuda()
+            x_subset = x[head : min(head + max_batch, num_samples), 0:3]
 
             latent_repeat = lat_vec.expand(x_subset.shape[0], -1)
             fp_inputs = torch.cat([latent_repeat, x_subset], dim=-1)
@@ -75,7 +76,8 @@ def decode_sdf(decoder, lat_vec, x, max_batch=64**3):
             sdf_values_chunks.append(sdf_values)
             head += max_batch
 
-    sdf_values = torch.cat(sdf_values_chunks, 0).cuda()
+    # sdf_values = torch.cat(sdf_values_chunks, 0).cuda()
+    sdf_values = torch.cat(sdf_values_chunks, 0)
     return sdf_values
 
 
@@ -97,7 +99,8 @@ def get_batch_sdf_jacobian(decoder, lat_vec, x, out_dim=1):
     inputs.requires_grad = True
     y = decoder(inputs)  # (n, out_dim, out_dim)
     # (n, out_dim, out_dim)
-    w = torch.eye(out_dim).view(1, out_dim, out_dim).repeat(n, 1, 1).cuda()
+    # w = torch.eye(out_dim).view(1, out_dim, out_dim).repeat(n, 1, 1).cuda()
+    w = torch.eye(out_dim).view(1, out_dim, out_dim).repeat(n, 1, 1)
     y.backward(w, retain_graph=False)
 
     return y.detach(), inputs.grad.data.detach()
@@ -170,8 +173,10 @@ def get_points_to_pose_jacobian_sim3(points):
     """
     n = points.shape[0]
     eye = torch.eye(3).view(1, 3, 3)
-    batch_eye = eye.repeat(n, 1, 1).cuda()
-    zero = torch.zeros(n).cuda()
+    # batch_eye = eye.repeat(n, 1, 1).cuda()
+    # zero = torch.zeros(n).cuda()
+    batch_eye = eye.repeat(n, 1, 1)
+    zero = torch.zeros(n)
     x = points[:, 0]
     y = points[:, 1]
     z = points[:, 2]
@@ -269,5 +274,5 @@ def get_time():
     """
     :return: get timing statistics
     """
-    torch.cuda.synchronize()
+    # torch.cuda.synchronize()
     return time.time()

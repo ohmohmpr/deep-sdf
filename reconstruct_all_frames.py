@@ -49,8 +49,22 @@ rot_z_world = np.array([
     [0, 0, 0, 1]
 ])
 
+scale = np.array([
+    [np.cos(angle_rad), -np.sin(angle_rad),0 ,0],
+    [np.sin(angle_rad),  np.cos(angle_rad),0 ,0],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1]
+])
 
+scale_pam = 1./2.4
+scale = scale_pam * np.array(np.eye(3))
+    
 rott = rot_x_world @ rot_z_world
+scale_mtx = scale @ rott[:3, :3]
+
+rott_temp = np.hstack((scale_mtx, rott[0:3, 3][np.newaxis].T)) 
+rott = np.vstack((rott_temp, rott[3]))    
+print("rott", rott)                                             
 
 def config_parser():
     parser = argparse.ArgumentParser()
@@ -104,23 +118,9 @@ if __name__ == "__main__":
             pass
     all_points = all_points[1:]
     
-    scale_pam = 1./2.4
-    scale = scale_pam * np.array([
-                                [1, 0, 0],
-                                [0, 1, 0,],
-                                [0, 0, 1],
-    ])
-    # all_points = np.hstack((all_points, np.ones((all_points.shape[0], 1))))
-    rot_points = (rott[:3, :3] @ all_points.T).T
-    # translate = np.full((13450, 3), np.array([[0.5, 0, 0]]))
-    # rot_points = (translate.T + all_points.T).T
-
-    # red_pcd = np.load('red_pcd.npy')
-    rot_points = (scale @ rot_points.T).T
-    # rot_points = rot_points[:, :3]
-    # all_points = all_points[:, :3]
-    
-    all_points = rot_points
+    all_points = np.hstack((all_points, np.ones((all_points.shape[0], 1))))
+    rot_points = (rott @ all_points.T).T
+    all_points = rot_points[:, :3]
     
     obj = optimizer.reconstruct_object(np.eye(4, dtype="float32"), all_points)
     objects_recon = [obj]
@@ -176,3 +176,5 @@ if __name__ == "__main__":
     vis.destroy_window()
 
 
+
+# python reconstruct_frame.py --config configs/config_kitti.json

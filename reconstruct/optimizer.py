@@ -98,7 +98,7 @@ class Optimizer(object):
             latent_vector = torch.zeros(self.code_len)
         else:
             # latent_vector = torch.from_numpy(code[:self.code_len]).cuda()
-            latent_vector = torch.from_numpy(code[:self.code_len])
+            latent_vector = torch.from_numpy(code[:self.code_len]).to(dtype=torch.float32)
 
         # Initial Pose Estimate
         t_cam_obj = torch.from_numpy(t_cam_obj)
@@ -190,7 +190,6 @@ class Optimizer(object):
         print("Reconstruction takes %f seconds" % (end - start))
         t_cam_obj = torch.inverse(t_obj_cam)
         print("AFTER t_cam_obj", t_cam_obj)
-        # print("AFTER t_obj_cam", t_obj_cam)
         return ForceKeyErrorDict(t_cam_obj=t_cam_obj.numpy(),
                                  code=latent_vector.cpu().numpy(),
                                  is_good=True, loss=loss)

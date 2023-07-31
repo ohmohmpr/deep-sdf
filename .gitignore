@@ -10,8 +10,7 @@ _skbuild/
 ### C++ ###
 # data
 data/*
-weights/*
-mesh/*
+weights/
 
 .DS_Store
 
